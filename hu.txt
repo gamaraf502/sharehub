@@ -1,0 +1,152 @@
+# world_chain_cheat.py
+# Single-file keyboard macro for word-chain games
+# Requirements: pip install pynput pyautogui
+# Run as administrator/root on Windows/macOS if focus issues occur
+
+import time
+import random
+from collections import deque
+from datetime import datetime
+from pynput import keyboard
+import pyautogui
+
+# ================= CONFIGURATION =================
+
+# Global on/off switch (toggled with F12)
+enabled = False
+
+# How fast the two '5's need to be pressed after the letter (seconds)
+TRIGGER_WINDOW = 0.45
+
+# How many backspaces to send to erase the trigger sequence
+# Usually 3 for: y55 → letter + two digits
+BACKSPACES = 3
+
+# Delay between keystrokes when typing the word (human-like)
+TYPE_DELAY = 0.04       # seconds between characters
+FINAL_ENTER_DELAY = 0.08
+
+# Words per starting letter (add as many as you want)
+WORD_POOL = {
+    'a': ['apple', 'ant', 'arrow', 'adventure', 'animal', 'angle', 'airport'],
+    'b': ['banana', 'ball', 'bird', 'beach', 'butterfly', 'bridge', 'book'],
+    'c': ['cat', 'cake', 'car', 'cloud', 'camera', 'candle', 'castle'],
+    'd': ['dog', 'door', 'duck', 'dance', 'dragon', 'dream', 'desert'],
+    'e': ['elephant', 'egg', 'eagle', 'earth', 'energy', 'engine', 'envelope'],
+    'f': ['fish', 'flower', 'fox', 'fire', 'forest', 'friend', 'fruit'],
+    'g': ['goat', 'grape', 'gift', 'garden', 'ghost', 'giraffe', 'globe'],
+    'h': ['horse', 'house', 'hat', 'heart', 'honey', 'hotel', 'hammer'],
+    'i': ['ice', 'island', 'ink', 'idea', 'igloo', 'internet', 'iron'],
+    'j': ['juice', 'jelly', 'jump', 'jacket', 'jungle', 'jeans', 'jet'],
+    'k': ['kite', 'king', 'key', 'kangaroo', 'kitchen', 'koala', 'knife'],
+    'l': ['lion', 'lemon', 'lamp', 'lake', 'ladder', 'ladybug', 'lemonade'],
+    'm': ['monkey', 'moon', 'mountain', 'music', 'mango', 'mirror', 'mouse'],
+    'n': ['nose', 'night', 'nest', 'notebook', 'needle', 'nurse', 'nut'],
+    'o': ['orange', 'owl', 'ocean', 'octopus', 'onion', 'orbit', 'ostrich'],
+    'p': ['penguin', 'pizza', 'piano', 'pear', 'pencil', 'parrot', 'planet'],
+    'q': ['queen', 'quilt', 'quiet', 'quokka', 'question', 'quartz'],
+    'r': ['rabbit', 'rainbow', 'river', 'robot', 'rose', 'rocket', 'ring'],
+    's': ['snake', 'sun', 'star', 'spider', 'sandwich', 'school', 'shark'],
+    't': ['tiger', 'tree', 'train', 'turtle', 'tomato', 'tower', 'truck'],
+    'u': ['umbrella', 'unicorn', 'uniform', 'ukulele', 'uncle', ' universe'],
+    'v': ['violin', 'volcano', 'vase', 'van', 'vegetable', 'village', 'violet'],
+    'w': ['whale', 'window', 'wolf', 'water', 'watch', 'wind', 'watermelon'],
+    'x': ['xylophone', 'x-ray', 'xenon', 'xmas'],
+    'y': ['yellow', 'yacht', 'yogurt', 'yard', 'yawn', 'yeti', 'yoyo'],
+    'z': ['zebra', 'zoo', 'zipper', 'zucchini', 'zero', 'zigzag', 'zombie']
+}
+
+# ================= STATE =================
+
+key_buffer = deque(maxlen=10)           # (char, timestamp)
+last_trigger_time = 0
+
+def log(msg):
+    ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    print(f"[{ts}] {msg}")
+
+def is_trigger_sequence(keys):
+    if len(keys) < 3:
+        return False, None
+    a, b, c = keys[-3:]
+    char1, t1 = a
+    char2, t2 = b
+    char3, t3 = c
+    
+    if char2 != '5' or char3 != '5':
+        return False, None
+        
+    time_span = t3 - t1
+    if time_span > TRIGGER_WINDOW:
+        return False, None
+        
+    # We have letter + 5 + 5 in time window
+    letter = char1.lower()
+    if letter in WORD_POOL:
+        return True, letter
+    return False, None
+
+def type_word(word):
+    for char in word:
+        pyautogui.write(char, interval=TYPE_DELAY)
+    time.sleep(FINAL_ENTER_DELAY)
+    pyautogui.press('enter')
+
+def erase_trigger():
+    for _ in range(BACKSPACES):
+        pyautogui.press('backspace')
+        time.sleep(0.015)   # tiny delay helps reliability
+
+# ================= KEYBOARD HANDLER =================
+
+def on_press(key):
+    global enabled, last_trigger_time
+
+    try:
+        char = key.char
+        if char is None:
+            return
+    except AttributeError:
+        # Special key
+        if key == keyboard.Key.f12:
+            enabled = not enabled
+            status = "ENABLED" if enabled else "DISABLED"
+            log(f"Cheat toggled → {status}")
+            pyautogui.alert(f"Cheat is now {status}", title="World Chain Cheat", timeout=1)
+        return
+
+    now = time.time()
+    key_buffer.append((char.lower(), now))
+
+    if not enabled:
+        return
+
+    is_trigger, letter = is_trigger_sequence(list(key_buffer))
+    if is_trigger:
+        # Prevent double-trigger in short time
+        if now - last_trigger_time < 1.2:
+            return
+        last_trigger_time = now
+
+        log(f"Trigger detected: {letter}55 → picking word")
+
+        # Small random humanization delay
+        time.sleep(random.uniform(0.05, 0.14))
+
+        erase_trigger()
+        time.sleep(random.uniform(0.06, 0.12))
+
+        word = random.choice(WORD_POOL[letter])
+        log(f" → Typing: {word}")
+
+        type_word(word)
+
+# ================= MAIN =================
+
+print("World Chain quick-cheat  |  F12 = toggle on/off")
+print(f"Trigger: letter + fast 55    Window: {TRIGGER_WINDOW}s")
+print("Words available for each letter:", ", ".join(sorted(WORD_POOL.keys())))
+print("-" * 50)
+
+with keyboard.Listener(on_press=on_press) as listener:
+    listener.join()

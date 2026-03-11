@@ -1,0 +1,94 @@
+Here are the properties for each relation on the positive integers:
+
+---
+
+## **(i)  Relation defined by:**
+
+**x R y  ⇔  x·y is a perfect square**
+
+### **Reflexive?**
+
+Yes.
+For any positive integer (x),
+[
+x \cdot x = x^2,
+]
+which is always a square. ✔️
+
+### **Symmetric?**
+
+Yes.
+If (x \cdot y) is a square, then (y \cdot x) is the same number. ✔️
+
+### **Antisymmetric?**
+
+No.
+Example: (1 \cdot 4 = 4) is a square, so (1R4) and (4R1), but (1 \ne 4). ❌
+
+### **Transitive?**
+
+Yes.
+If
+[
+xy = a^2 \quad \text{and} \quad yz = b^2,
+]
+then for every prime (p),
+
+* (v_p(x)+v_p(y)) is even,
+* (v_p(y)+v_p(z)) is even,
+
+Adding them gives
+[
+v_p(x)+2v_p(y)+v_p(z) \text{ is even} \implies v_p(x)+v_p(z) \text{ is even},
+]
+so (xz) is a perfect square. ✔️
+
+### **Conclusion for (i):**
+
+**Reflexive, Symmetric, Transitive (but not Antisymmetric).**
+It **is** an equivalence relation.
+
+---
+
+## **(ii) Relation defined by:**
+
+**x R y ⇔ x + y = 10**
+
+### **Reflexive?**
+
+No.
+Reflexive would require (x + x = 10) for *all* (x), but only (x = 5) satisfies this. ❌
+
+### **Symmetric?**
+
+Yes.
+(x + y = 10) implies (y + x = 10). ✔️
+
+### **Antisymmetric?**
+
+No.
+Example: (3 + 7 = 10), so (3R7) and (7R3), but (3 \ne 7). ❌
+
+### **Transitive?**
+
+No.
+Example:
+
+* (3R7) because (3+7=10)
+* (7R3) because (7+3=10)
+  but (3R3) is false since (3+3 \ne 10). ❌
+
+### **Conclusion for (ii):**
+
+**Only Symmetric.**
+
+---
+
+## **Final Summary**
+
+| Relation                | Reflexive | Symmetric | Antisymmetric | Transitive |
+| ----------------------- | --------- | --------- | ------------- | ---------- |
+| **(i) x·y is a square** | ✔️        | ✔️        | ❌             | ✔️         |
+| **(ii) x + y = 10**     | ❌         | ✔️        | ❌             | ❌          |
+
+Let me know if you'd like diagrams or equivalence classes for relation (i)!

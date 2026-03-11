@@ -1,0 +1,47 @@
+import java.util.Scanner;
+import java.util.ArrayList;
+public class Main 
+{
+  static class ArrayListManager
+  {
+    private ArrayList<Integer>list;
+    ArrayListManager()
+    {
+      list=new ArrayList<>();
+    }
+    void addElement(int value)
+    {
+      list.add(value);
+    }
+    boolean searchElement(int value)
+    {
+      return list.contains(value);
+    }
+    boolean removeElement(int value)
+    {
+      return list.remove((Integer)value);
+    }
+    void printElements(String message)
+    {
+      System.out.println(message+list);
+    }
+  }
+  public static void main(String[] args) 
+  {
+    Scanner sc = new Scanner(System.in);
+    ArrayListManager manager=new ArrayListManager();
+    int n=sc.nextInt();
+    for(int i=0;i<n;i++)
+    {
+      int num=sc.nextInt();
+      manager.addElement(num);
+    }
+    manager.printElements("After adding elements: ");
+    int x=sc.nextInt();
+    System.out.println("Search "+x+": "+(manager.searchElement(x)?"Found":"Not Found"));
+    int y=sc.nextInt();
+    System.out.println("Removing " +y+": "+(manager.removeElement(y)?"Removed":"NOt Found"));
+    manager.printElements("After removals: ");
+    sc.close();
+  }
+}

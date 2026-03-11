@@ -1,0 +1,73 @@
+<?php
+// index.php — Simple PHP file/text sharing tool
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+define('DATA_FILE', __DIR__ . '/data.json');
+define('FILES_DIR', __DIR__ . '/files');
+define('TEXTS_DIR', __DIR__ . '/texts');
+define('HALT_FILE', __DIR__ . '/halt.lock');
+$maxFileSize = 5 * 1024 * 1024; // 5 MB
+
+if (!is_dir(FILES_DIR)) mkdir(FILES_DIR, 0755, true);
+if (!is_dir(TEXTS_DIR)) mkdir(TEXTS_DIR, 0755, true);
+if (!file_exists(DATA_FILE)) file_put_contents(DATA_FILE, json_encode(new stdClass(), JSON_PRETTY_PRINT));
+
+$site_halted = file_exists(HALT_FILE);
+
+function load_data() {
+    $s = @file_get_contents(DATA_FILE);
+    $arr = $s ? json_decode($s, true) : [];
+    return is_array($arr) ? $arr : [];
+}
+function save_data($a) { file_put_contents(DATA_FILE, json_encode($a, JSON_PRETTY_PRINT)); }
+function sanitize_code($c) { $c = preg_replace('/[^A-Za-z0-9_-]/', '', $c); return substr($c, 0, 32); }
+function gen_code($len = 3) { $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; $r=''; for($i=0;$i<$len;$i++) $r.=$chars[random_int(0,strlen($chars)-1)]; return $r; }
+function generate_short_unique(&$data){for($len=2;$len<=6;$len++){for($i=0;$i<200;$i++){ $c=gen_code($len); if(!isset($data[$c]))return $c; }} do{$c=gen_code(8);}while(isset($data[$c])); return $c;}
+function deny_extension($name){$bad=['php','phtml','php3','php4','php5','phps'];$ext=strtolower(pathinfo($name,PATHINFO_EXTENSION));return in_array($ext,$bad);}
+
+$messages=[];$showOverride=false;$overrideCode='';$data=load_data();
+if($_SERVER['REQUEST_METHOD']==='POST'){ $action=$_POST['action']??'';
+ if($action==='viewbycode'){ $code=sanitize_code($_POST['viewcode']??''); if($code){header("Location: view.php?c=".urlencode($code));exit;} else {$messages[]="Enter a valid code to view.";}}
+ elseif($action==='save'){ if($site_halted){$messages[]="🚫 Site halted by admin. Uploads disabled.";} else {
+ $comment=trim($_POST['comment']??''); $code=sanitize_code($_POST['code']??''); $override=isset($_POST['override']); $text=trim($_POST['text']??'');
+ if(!$code)$code=generate_short_unique($data); if(isset($data[$code])&&!$override){$messages[]="Code <b>$code</b> exists. Click Override."; $showOverride=true; $overrideCode=$code;}
+ else { $entry=['comment'=>$comment,'timestamp'=>time()];
+ if(isset($_FILES['file'])&&$_FILES['file']['size']>0){$origName=$_FILES['file']['name'];
+ if($_FILES['file']['size']>$maxFileSize){$messages[]="File too large.";}
+ elseif(deny_extension($origName)){$messages[]="File type not allowed.";}
+ else {$target=FILES_DIR."/$code"."_".basename($origName); move_uploaded_file($_FILES['file']['tmp_name'],$target);
+ $entry['type']='file'; $entry['filename']=basename($target); $data[$code]=$entry; save_data($data);
+ $messages[]="✅ File uploaded. <a href='view.php?c=$code' target='_blank'>view.php?c=$code</a>";}}
+ elseif($text!==''){ $entry['type']='text'; file_put_contents(TEXTS_DIR."/$code.txt",$text); $data[$code]=$entry; save_data($data);
+ $messages[]="✅ Text saved. <a href='view.php?c=$code' target='_blank'>view.php?c=$code</a>";}
+ else {$messages[]="Please select a file or enter text.";} } } } }
+?>
+<!doctype html><html><head><meta charset='utf-8'><title>Share Tool</title><style>
+body{font-family:system-ui,Arial;background:#f6f7fb;margin:0;padding:0}
+.container{max-width:720px;margin:40px auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 0 10px rgba(0,0,0,.1)}
+h1{text-align:center;color:#333}
+label{display:block;margin-top:10px;font-weight:bold}
+input[type=text],textarea,input[type=file]{width:100%;padding:8px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+textarea{height:120px;resize:vertical}
+button{padding:10px 18px;background:#007bff;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:10px}
+button:hover{background:#0056b3}
+.msg{padding:10px;margin-top:10px;border-radius:8px;background:#f1f1f1}
+.halt{background:#ffdddd;border:1px solid #cc0000;color:#900}
+a{color:#007bff;text-decoration:none}
+a:hover{text-decoration:underline}
+.footer{text-align:center;margin-top:25px;color:#666;font-size:14px}
+</style></head><body><div class='container'><h1>📤 Simple Share</h1>
+<?php if($site_halted):?><div class='msg halt'>⚠️ Site halted by admin.</div><?php endif; ?>
+<?php foreach($messages as $m):?><div class='msg'><?php echo $m; ?></div><?php endforeach; ?>
+<form method='post' enctype='multipart/form-data'>
+<label>Enter Text</label><textarea name='text' placeholder='Type or paste text...'></textarea>
+<label>Or Upload File</label><input type='file' name='file'>
+<label>Comment</label><input type='text' name='comment' placeholder='Short note'>
+<label>Share Code</label><input type='text' name='code' placeholder='Leave blank for auto'>
+<?php if($showOverride):?><input type='hidden' name='code' value='<?php echo htmlspecialchars($overrideCode); ?>'>
+<button type='submit' name='override' value='1'>Override Existing</button>
+<?php elseif($site_halted):?><button type='button' disabled>Site Halted</button>
+<?php else:?><button type='submit' name='action' value='save'>Save & Get Link</button><?php endif; ?></form><hr>
+<form method='post'><label>View by Code</label><input type='text' name='viewcode' placeholder='Enter code'><button type='submit' name='action' value='viewbycode'>View</button></form>
+<div class='footer'><p><a href='all.php'>Admin / View All</a></p></div></div></body></html>

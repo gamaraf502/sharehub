@@ -1,0 +1,464 @@
+"""
+Word Chain Cheat Tool
+=====================
+Requirements: pip install requests
+Run: python word_chain_cheat.py
+
+Set your ANTHROPIC_API_KEY in the app or as an environment variable.
+"""
+
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+import threading
+import json
+import urllib.request
+import urllib.error
+import os
+import re
+import time
+
+# ── Config ────────────────────────────────────────────────────────────────────
+API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+MODEL   = "claude-sonnet-4-20250514"
+API_URL = "https://api.anthropic.com/v1/messages"
+
+# ── Colours ───────────────────────────────────────────────────────────────────
+BG        = "#0d0d14"
+BG2       = "#13131e"
+BG3       = "#1a1a28"
+ACCENT    = "#4da6ff"
+ACCENT2   = "#00e5a0"
+TEXT      = "#dde0ff"
+TEXT_DIM  = "#5a5a7a"
+RED       = "#ff4d6a"
+YELLOW    = "#ffd166"
+BORDER    = "#252535"
+
+FONT_MONO  = ("Courier New", 11)
+FONT_BOLD  = ("Courier New", 12, "bold")
+FONT_LARGE = ("Courier New", 22, "bold")
+FONT_SMALL = ("Courier New", 9)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+class WordChainApp(tk.Tk):
+
+    def __init__(self):
+        super().__init__()
+        self.title("Word Chain Cheat")
+        self.configure(bg=BG)
+        self.geometry("720x780")
+        self.minsize(600, 680)
+        self.resizable(True, True)
+
+        # State
+        self.used_words     = set()   # never repeat
+        self.word_history   = []      # ordered list
+        self.timer_seconds  = 20
+        self._timer_id      = None
+        self._fetch_thread  = None
+
+        self._build_ui()
+        self._start_timer_display()
+
+    # ── UI Construction ────────────────────────────────────────────────────────
+
+    def _build_ui(self):
+        # ── Top bar ──────────────────────────────────────────────────────────
+        top = tk.Frame(self, bg=BG, pady=12)
+        top.pack(fill="x", padx=20)
+
+        tk.Label(top, text="WORD", bg=BG, fg=TEXT, font=("Courier New", 20, "bold")).pack(side="left")
+        tk.Label(top, text="CHAIN", bg=BG, fg=ACCENT, font=("Courier New", 20, "bold")).pack(side="left")
+        tk.Label(top, text=" CHEAT", bg=BG, fg=TEXT_DIM, font=("Courier New", 14)).pack(side="left", pady=4)
+
+        # API key entry (top right)
+        api_frame = tk.Frame(top, bg=BG)
+        api_frame.pack(side="right")
+        tk.Label(api_frame, text="API KEY:", bg=BG, fg=TEXT_DIM, font=FONT_SMALL).pack(side="left", padx=(0,4))
+        self.api_entry = tk.Entry(api_frame, show="*", bg=BG3, fg=TEXT, font=FONT_SMALL,
+                                   bd=0, width=28, insertbackground=TEXT, relief="flat")
+        self.api_entry.pack(side="left", ipady=4, padx=4)
+        self.api_entry.insert(0, API_KEY)
+        self._style_entry(self.api_entry)
+
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x", padx=20)
+
+        # ── Input row ────────────────────────────────────────────────────────
+        inp = tk.Frame(self, bg=BG, pady=14)
+        inp.pack(fill="x", padx=20)
+
+        # Starting letter
+        lf = tk.Frame(inp, bg=BG)
+        lf.pack(side="left", padx=(0,14))
+        tk.Label(lf, text="START LETTER", bg=BG, fg=TEXT_DIM, font=FONT_SMALL).pack(anchor="w")
+        self.letter_var = tk.StringVar(value="Y")
+        letter_box = ttk.Combobox(lf, textvariable=self.letter_var, width=4,
+                                   font=("Courier New", 16, "bold"), state="readonly")
+        letter_box["values"] = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        letter_box.pack(ipady=4)
+        self._style_combobox(letter_box)
+        letter_box.bind("<<ComboboxSelected>>", lambda e: self._on_letter_change())
+
+        # Min length
+        mf = tk.Frame(inp, bg=BG)
+        mf.pack(side="left", padx=(0,14))
+        tk.Label(mf, text="MIN LENGTH", bg=BG, fg=TEXT_DIM, font=FONT_SMALL).pack(anchor="w")
+        len_ctrl = tk.Frame(mf, bg=BG)
+        len_ctrl.pack()
+        self.minlen_var = tk.IntVar(value=10)
+        tk.Button(len_ctrl, text="−", command=self._dec_len,
+                  bg=BG3, fg=TEXT, activebackground=BORDER, activeforeground=TEXT,
+                  bd=0, width=2, font=FONT_BOLD, cursor="hand2").pack(side="left")
+        self.len_lbl = tk.Label(len_ctrl, textvariable=self.minlen_var,
+                                 bg=BG, fg=ACCENT, font=("Courier New", 18, "bold"), width=3)
+        self.len_lbl.pack(side="left")
+        tk.Button(len_ctrl, text="+", command=self._inc_len,
+                  bg=BG3, fg=TEXT, activebackground=BORDER, activeforeground=TEXT,
+                  bd=0, width=2, font=FONT_BOLD, cursor="hand2").pack(side="left")
+
+        # Timer
+        tf = tk.Frame(inp, bg=BG)
+        tf.pack(side="left", padx=(0,14))
+        tk.Label(tf, text="TIMER", bg=BG, fg=TEXT_DIM, font=FONT_SMALL).pack(anchor="w")
+        self.timer_lbl = tk.Label(tf, text="20s", bg=BG, fg=ACCENT2,
+                                   font=("Courier New", 22, "bold"))
+        self.timer_lbl.pack()
+
+        # Buttons
+        btn_frame = tk.Frame(inp, bg=BG)
+        btn_frame.pack(side="left", padx=(4,0))
+        self.go_btn = self._make_btn(btn_frame, "⚡ FIND WORDS", self._find_words, ACCENT)
+        self.go_btn.pack(pady=(12,2))
+        self._make_btn(btn_frame, "⏱ RESET TIMER", self._reset_timer, BG3, fg=TEXT_DIM).pack()
+
+        # ── Status bar ───────────────────────────────────────────────────────
+        self.status_var = tk.StringVar(value="Ready — set letter & length, then click FIND WORDS")
+        status_bar = tk.Label(self, textvariable=self.status_var, bg=BG2, fg=TEXT_DIM,
+                               font=FONT_SMALL, anchor="w", padx=12, pady=5)
+        status_bar.pack(fill="x")
+
+        # ── Results area ─────────────────────────────────────────────────────
+        mid = tk.Frame(self, bg=BG)
+        mid.pack(fill="both", expand=True, padx=20, pady=(10,0))
+
+        # Left: word list
+        left = tk.Frame(mid, bg=BG)
+        left.pack(side="left", fill="both", expand=True)
+
+        hdr = tk.Frame(left, bg=BG)
+        hdr.pack(fill="x", pady=(0,6))
+        tk.Label(hdr, text="SUGGESTED WORDS", bg=BG, fg=TEXT_DIM, font=FONT_SMALL).pack(side="left")
+        self.count_lbl = tk.Label(hdr, text="", bg=BG, fg=ACCENT, font=FONT_SMALL)
+        self.count_lbl.pack(side="left", padx=8)
+        self._make_btn(hdr, "CLEAR USED", self._clear_used, BG3, fg=RED, small=True).pack(side="right")
+
+        # Scrollable word list frame
+        list_outer = tk.Frame(left, bg=BORDER, bd=1, relief="flat")
+        list_outer.pack(fill="both", expand=True)
+
+        self.canvas = tk.Canvas(list_outer, bg=BG2, bd=0, highlightthickness=0)
+        scrollbar = tk.Scrollbar(list_outer, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        self.word_frame = tk.Frame(self.canvas, bg=BG2)
+        self.canvas_window = self.canvas.create_window((0,0), window=self.word_frame, anchor="nw")
+        self.word_frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+        # Right: history + used counter
+        right = tk.Frame(mid, bg=BG, padx=(10,0))
+        right.pack(side="right", fill="y")
+
+        tk.Label(right, text="USED WORDS", bg=BG, fg=TEXT_DIM, font=FONT_SMALL).pack(anchor="w")
+        self.used_lbl = tk.Label(right, text="0 words used", bg=BG, fg=YELLOW, font=FONT_SMALL)
+        self.used_lbl.pack(anchor="w", pady=(0,4))
+
+        self.history_box = scrolledtext.ScrolledText(
+            right, width=18, height=30, bg=BG2, fg=TEXT_DIM,
+            font=FONT_SMALL, bd=0, relief="flat", state="disabled",
+            insertbackground=TEXT, wrap="word"
+        )
+        self.history_box.pack(fill="both", expand=True)
+
+        # ── Copy bar ─────────────────────────────────────────────────────────
+        copy_bar = tk.Frame(self, bg=BG3, pady=8)
+        copy_bar.pack(fill="x", padx=20, pady=8)
+        tk.Label(copy_bar, text="COPIED:", bg=BG3, fg=TEXT_DIM, font=FONT_SMALL).pack(side="left", padx=8)
+        self.copied_lbl = tk.Label(copy_bar, text="—", bg=BG3, fg=ACCENT2,
+                                    font=("Courier New", 14, "bold"))
+        self.copied_lbl.pack(side="left")
+        self._make_btn(copy_bar, "COPY AGAIN", self._copy_again, BG, fg=ACCENT, small=True).pack(side="right", padx=8)
+        self._last_copied = ""
+
+    # ── Helpers ────────────────────────────────────────────────────────────────
+
+    def _style_entry(self, w):
+        w.configure(highlightbackground=BORDER, highlightthickness=1,
+                    highlightcolor=ACCENT, relief="flat")
+
+    def _style_combobox(self, w):
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TCombobox", fieldbackground=BG3, background=BG3,
+                        foreground=TEXT, bordercolor=BORDER, arrowcolor=TEXT_DIM)
+
+    def _make_btn(self, parent, text, cmd, bg=ACCENT, fg="#000", small=False):
+        f = FONT_SMALL if small else FONT_BOLD
+        return tk.Button(parent, text=text, command=cmd,
+                         bg=bg, fg=fg, activebackground=ACCENT, activeforeground="#000",
+                         bd=0, padx=10, pady=4, font=f, cursor="hand2", relief="flat")
+
+    def _on_frame_configure(self, event):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+    # ── Timer ──────────────────────────────────────────────────────────────────
+
+    def _start_timer_display(self):
+        self._update_timer_label()
+
+    def _update_timer_label(self):
+        t = self.timer_seconds
+        if t > 10:
+            color = ACCENT2
+        elif t > 5:
+            color = YELLOW
+        else:
+            color = RED
+        self.timer_lbl.configure(text=f"{t}s", fg=color)
+        if t > 0:
+            self._timer_id = self.after(1000, self._tick_timer)
+
+    def _tick_timer(self):
+        self.timer_seconds -= 1
+        self._update_timer_label()
+
+    def _reset_timer(self):
+        if self._timer_id:
+            self.after_cancel(self._timer_id)
+        self.timer_seconds = 20
+        self._update_timer_label()
+
+    def _on_letter_change(self):
+        self._reset_timer()
+
+    # ── Length controls ────────────────────────────────────────────────────────
+
+    def _inc_len(self):
+        self.minlen_var.set(self.minlen_var.get() + 1)
+
+    def _dec_len(self):
+        v = self.minlen_var.get()
+        if v > 1:
+            self.minlen_var.set(v - 1)
+
+    # ── Word finding ───────────────────────────────────────────────────────────
+
+    def _find_words(self):
+        key = self.api_entry.get().strip()
+        if not key:
+            messagebox.showerror("No API Key", "Please enter your Anthropic API key.")
+            return
+        if self._fetch_thread and self._fetch_thread.is_alive():
+            return
+
+        self._reset_timer()
+        letter  = self.letter_var.get().upper()
+        min_len = self.minlen_var.get()
+
+        self._clear_word_list()
+        self._set_status(f"🔍 Finding {min_len}+ letter words starting with {letter}...", ACCENT)
+        self.go_btn.configure(state="disabled", text="⏳ FINDING...")
+
+        self._fetch_thread = threading.Thread(
+            target=self._fetch_words,
+            args=(key, letter, min_len),
+            daemon=True
+        )
+        self._fetch_thread.start()
+
+    def _fetch_words(self, key, letter, min_len):
+        already_used = list(self.used_words)
+        prompt = f"""Generate a list of exactly 30 valid English words that:
+1. Start with the letter '{letter}' (uppercase or lowercase)
+2. Have at least {min_len} letters
+3. Are real, common English words (no proper nouns, no made-up words)
+4. Do NOT include any of these already-used words: {already_used}
+5. Sort them longest-first
+
+Reply with ONLY a JSON array of strings, nothing else. Example: ["word1","word2","word3"]"""
+
+        payload = json.dumps({
+            "model": MODEL,
+            "max_tokens": 1000,
+            "messages": [{"role": "user", "content": prompt}]
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            API_URL,
+            data=payload,
+            headers={
+                "x-api-key": key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            },
+            method="POST"
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                body = json.loads(resp.read().decode())
+            raw_text = body["content"][0]["text"].strip()
+            # Strip any markdown fences
+            raw_text = re.sub(r"```[a-z]*", "", raw_text).strip("`").strip()
+            words = json.loads(raw_text)
+            # Filter: starts with letter, meets length, not already used
+            words = [
+                w.strip().lower() for w in words
+                if isinstance(w, str)
+                and w.strip().lower().startswith(letter.lower())
+                and len(w.strip()) >= min_len
+                and w.strip().lower() not in self.used_words
+            ]
+            # Deduplicate within this batch
+            seen = set()
+            unique = []
+            for w in words:
+                if w not in seen:
+                    seen.add(w)
+                    unique.append(w)
+            self.after(0, self._show_words, unique, letter, min_len)
+        except urllib.error.HTTPError as e:
+            msg = e.read().decode()
+            self.after(0, self._set_status, f"API error {e.code}: {msg[:80]}", RED)
+            self.after(0, self._re_enable_btn)
+        except Exception as e:
+            self.after(0, self._set_status, f"Error: {str(e)}", RED)
+            self.after(0, self._re_enable_btn)
+
+    def _show_words(self, words, letter, min_len):
+        self._clear_word_list()
+        if not words:
+            self._set_status(f"No words found for {letter} with {min_len}+ letters. Try lower length.", YELLOW)
+            self._re_enable_btn()
+            return
+
+        for i, word in enumerate(words):
+            self._add_word_row(word, i)
+
+        self.count_lbl.configure(text=f"({len(words)} words)")
+        self._set_status(f"✓ {len(words)} words found for '{letter}' ({min_len}+ letters) — click to copy!", ACCENT2)
+        self._re_enable_btn()
+
+    def _add_word_row(self, word, index):
+        row_bg = BG2 if index % 2 == 0 else BG3
+        row = tk.Frame(self.word_frame, bg=row_bg, cursor="hand2")
+        row.pack(fill="x", pady=1)
+
+        lbl = tk.Label(row, text=word.upper(), bg=row_bg, fg=TEXT,
+                       font=FONT_MONO, anchor="w", padx=12, pady=8)
+        lbl.pack(side="left", fill="x", expand=True)
+
+        len_lbl = tk.Label(row, text=f"{len(word)}L", bg=row_bg, fg=TEXT_DIM,
+                           font=FONT_SMALL, padx=8)
+        len_lbl.pack(side="right")
+
+        copy_btn = tk.Button(row, text="COPY", bg=ACCENT, fg="#000",
+                             font=FONT_SMALL, bd=0, padx=8, pady=4,
+                             cursor="hand2", relief="flat",
+                             command=lambda w=word, r=row, l=lbl: self._copy_word(w, r, l))
+        copy_btn.pack(side="right", padx=4, pady=4)
+
+        # Click anywhere on row also copies
+        for widget in (row, lbl, len_lbl):
+            widget.bind("<Button-1>", lambda e, w=word, r=row, l=lbl: self._copy_word(w, r, l))
+            widget.bind("<Enter>", lambda e, r=row, l=lbl, b=copy_btn: self._row_hover(r, l, b, True))
+            widget.bind("<Leave>", lambda e, r=row, l=lbl, b=copy_btn: self._row_hover(r, l, b, False))
+
+    def _row_hover(self, row, lbl, btn, entering):
+        if entering:
+            row.configure(bg="#1e1e30")
+            lbl.configure(bg="#1e1e30", fg=ACCENT)
+        else:
+            orig = row.cget("bg")
+            row.configure(bg=row.cget("bg"))
+            lbl.configure(bg=row.cget("bg"), fg=TEXT)
+
+    def _copy_word(self, word, row, lbl):
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(word)
+            self.update()
+        except Exception:
+            pass
+
+        # Mark as used
+        self.used_words.add(word.lower())
+        self._last_copied = word
+
+        # Visual feedback on row
+        row.configure(bg="#1a2a1a")
+        lbl.configure(bg="#1a2a1a", fg=ACCENT2, text=f"✓ {word.upper()}")
+
+        # Update copy bar
+        self.copied_lbl.configure(text=word.upper())
+
+        # Update history
+        self.word_history.append(word)
+        self._update_history()
+        self._set_status(f"✓ Copied '{word}' — paste it in Telegram!", ACCENT2)
+
+    def _copy_again(self):
+        if self._last_copied:
+            try:
+                self.clipboard_clear()
+                self.clipboard_append(self._last_copied)
+                self.update()
+                self._set_status(f"✓ Re-copied '{self._last_copied}'", ACCENT2)
+            except Exception:
+                pass
+
+    def _update_history(self):
+        self.history_box.configure(state="normal")
+        self.history_box.delete("1.0", "end")
+        for i, w in enumerate(reversed(self.word_history), 1):
+            self.history_box.insert("end", f"{i:>3}. {w}\n")
+        self.history_box.configure(state="disabled")
+        self.used_lbl.configure(text=f"{len(self.used_words)} words used")
+
+    def _clear_word_list(self):
+        for w in self.word_frame.winfo_children():
+            w.destroy()
+        self.count_lbl.configure(text="")
+
+    def _clear_used(self):
+        if messagebox.askyesno("Clear Used Words", "Reset all used words? They can appear again."):
+            self.used_words.clear()
+            self.word_history.clear()
+            self._update_history()
+            self._set_status("Used words cleared.", TEXT_DIM)
+
+    def _set_status(self, msg, color=TEXT_DIM):
+        self.status_var.set(msg)
+        # Find status label and recolour
+        for w in self.winfo_children():
+            if isinstance(w, tk.Label) and w.cget("textvariable") == str(self.status_var):
+                w.configure(fg=color)
+
+    def _re_enable_btn(self):
+        self.go_btn.configure(state="normal", text="⚡ FIND WORDS")
+
+
+# ── Entry point ────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    app = WordChainApp()
+    app.mainloop()

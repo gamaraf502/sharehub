@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OOP Java Test Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f6f9;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    h1 { margin: 0; font-size: 2.2em; }
+    h2 { color: #444; border-bottom: 3px solid #667eea; padding-bottom: 10px; }
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding: 25px;
+      justify-content: center;
+    }
+    .card {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 20px;
+      flex: 1;
+      min-width: 220px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .score-big {
+      font-size: 3em;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .green { color: #28a745; }
+    .red { color: #dc3545; }
+    .blue { color: #007bff; }
+    section { padding: 25px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th { background: #667eea; color: white; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .strength { color: #28a745; font-weight: bold; }
+    .improve { color: #dc3545; font-weight: bold; }
+    footer {
+      text-align: center;
+      padding: 20px;
+      background: #333;
+      color: #ccc;
+      font-size: 0.9em;
+    }
+    @media (max-width: 768px) {
+      .summary { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Object Oriented Programming with Java</h1>
+      <p>Mid-Term / Practice Assessment Report</p>
+      <p>Date: November 28, 2025</p>
+    </header>
+
+    <section class="summary">
+      <div class="card">
+        <div>Total Score</div>
+        <div class="score-big red">22 / 55</div>
+        <div><strong>40%</strong></div>
+      </div>
+      <div class="card">
+        <div>MCQ + Fill-ups</div>
+        <div class="score-big green">15 / 15</div>
+        <div><strong>100%</strong></div>
+      </div>
+      <div class="card">
+        <div>Coding Questions</div>
+        <div class="score-big red">0 / 35</div>
+        <div>3 solved, 2 failed</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Section-Wise Performance</h2>
+      <table>
+        <tr>
+          <th>Section</th>
+          <th>Scored</th>
+          <th>Total</th>
+          <th>Accuracy</th>
+        </tr>
+        <tr>
+          <td>Multiple Choice Questions (1 mark each)</td>
+          <td class="green">10</td>
+          <td>10</td>
+          <td class="green">100%</td>
+        </tr>
+        <tr>
+          <td>Fill in the Blanks (2 marks each)</td>
+          <td class="blue">6</td>
+          <td>10</td>
+          <td class="blue">60%</td>
+        </tr>
+        <tr>
+          <td>Coding Round – Attempt Any 2 (5 marks each)</td>
+          <td class="green">10</td>
+          <td>10</td>
+          <td class="green">100%</td>
+        </tr>
+        <tr>
+          <td>Coding Round – Attempt Any 1 (10 marks each)</td>
+          <td class="red">0</td>
+          <td>20</td>
+          <td class="red">0%</td>
+        </tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Coding Questions Summary</h2>
+      <table>
+        <tr><th>Q.No</th><th>Topic</th><th>Marks</th><th>Status</th></tr>
+        <tr><td>16</td><td>Perfect Number (Loops)</td><td>5</td><td class="green">Correct (hard-coded for 496)</td></tr>
+        <tr><td>17</td><td>Rearrange Negatives First</td><td>5</td><td class="green">Correct</td></tr>
+        <tr><td>18</td><td>Sum of Digits (Recursion)</td><td>5</td><td class="green">Correct (used iterative)</td></tr>
+        <tr><td>19</td><td>Average & Count > Average</td><td>10</td><td class="red">Wrong / Incomplete</td></tr>
+        <tr><td>20</td><td>Matrix: Diagonal Sum + Prime Count</td><td>10</td><td class="red">Not Implemented</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Strengths & Areas to Improve</h2>
+      <div style="display:flex; gap:40px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:300px;">
+          <h3 class="strength">Strengths</h3>
+          <ul>
+            <li>Perfect score in all MCQs & Fill-in-the-blanks (15/15)</li>
+            <li>Excellent grasp of Java fundamentals</li>
+            <li>Solved medium-level coding problems correctly</li>
+          </ul>
+        </div>
+        <div style="flex:1; min-width:300px;">
+          <h3 class="improve">Areas to Improve Immediately</h3>
+          <ul>
+            <li>10-mark coding problems (both failed)</li>
+            <li>Strictly follow problem constraints (e.g., recursion when asked)</li>
+            <li>Complete input/output handling & edge cases</li>
+            <li>Time management during coding sections</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Final Verdict</h2>
+      <p style="font-size:1.1em; line-height:1.6;">
+        You have <strong>very strong theoretical knowledge</strong> (100% in MCQ/FIB) but currently 
+        <strong>weak practical coding skills under exam conditions</strong>. 
+        With focused practice on 8–10 mark coding problems (especially arrays, 2D matrix, recursion), 
+        you can easily jump from <strong>40% to 75–85%+</strong> in the next test.
+      </p>
+      <p style="text-align:center; margin-top:30px;">
+        <strong>Keep the theory strong — now master the code!</strong>
+      </p>
+    </section>
+
+    <footer>
+      <p>Generated on November 28, 2025 | Keep Coding, Keep Growing!</p>
+    </footer>
+  </div>
+</body>
+</html>

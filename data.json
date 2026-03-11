@@ -1,0 +1,476 @@
+<?php
+// all.php — Admin panel styled to match index.php
+define('DATA_FILE', __DIR__ . '/data.json');
+define('HALT_FILE', __DIR__ . '/halt.lock');
+function load_data(){ $s=@file_get_contents(DATA_FILE); $arr=$s?json_decode($s,true):[]; return is_array($arr)?$arr:[]; }
+$secret_noob='noob'; $secret_super='super'; $ok=false; $advanced=false; $message=''; $msgType='ok';
+if($_SERVER['REQUEST_METHOD']==='POST'){
+    if(isset($_POST['action'])&&$_POST['action']==='toggle_halt'){ $pass=$_POST['pass']??''; if($pass===$secret_super){
+        if(file_exists(HALT_FILE)){@unlink(HALT_FILE);$message='Site successfully unhalted.'; $msgType='ok';}else{file_put_contents(HALT_FILE,'halted');$message='Site halted — uploads are now disabled.'; $msgType='warn';}
+        $ok=true;$advanced=true;} else {$message='Unauthorized.'; $msgType='error';}}
+    if(isset($_POST['pass'])&&isset($_POST['login'])){ $pass=$_POST['pass']; if($pass===$secret_noob){$ok=true;$advanced=false;}
+    elseif($pass===$secret_super){$ok=true;$advanced=true;} else{$message='Incorrect password.'; $msgType='error';} } }
+$data=$ok?load_data():[];
+$site_halted=file_exists(HALT_FILE);
+?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Panel — Simple Share</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+    --bg:#0f0f0f;
+    --surface:#191919;
+    --surface-hover:#1f1f1f;
+    --border:#2a2a2a;
+    --border-hover:#3a3a3a;
+    --text:#f0efe9;
+    --text-secondary:#8a897f;
+    --text-muted:#5a5950;
+    --accent:#c9a84c;
+    --accent-hover:#d4b85e;
+    --accent-glow:rgba(201,168,76,0.12);
+    --success-bg:rgba(34,120,60,0.12);
+    --success-border:rgba(34,120,60,0.25);
+    --success-text:#5ec77a;
+    --warn-bg:rgba(180,100,20,0.12);
+    --warn-border:rgba(200,130,30,0.28);
+    --warn-text:#f0b860;
+    --error-bg:rgba(185,28,28,0.1);
+    --error-border:rgba(185,28,28,0.25);
+    --error-text:#f87171;
+    --radius:12px;
+    --radius-lg:20px;
+    --shadow:0 1px 2px rgba(0,0,0,0.3),0 4px 16px rgba(0,0,0,0.2);
+    --transition:0.25s cubic-bezier(0.4,0,0.2,1);
+}
+
+body{
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    min-height:100vh;
+    overflow-x:hidden;
+}
+
+body::before{
+    content:'';position:fixed;top:-40%;left:-20%;
+    width:60%;height:80%;
+    background:radial-gradient(ellipse,rgba(201,168,76,0.04) 0%,transparent 70%);
+    pointer-events:none;z-index:0;
+}
+body::after{
+    content:'';position:fixed;bottom:-40%;right:-20%;
+    width:60%;height:80%;
+    background:radial-gradient(ellipse,rgba(201,168,76,0.03) 0%,transparent 70%);
+    pointer-events:none;z-index:0;
+}
+
+.wrap{
+    position:relative;z-index:1;
+    max-width:900px;margin:0 auto;
+    padding:60px 24px 80px;
+}
+
+@keyframes fadeUp{
+    from{opacity:0;transform:translateY(16px)}
+    to{opacity:1;transform:translateY(0)}
+}
+.animate-in{animation:fadeUp .6s ease both}
+.animate-in:nth-child(2){animation-delay:.08s}
+.animate-in:nth-child(3){animation-delay:.16s}
+.animate-in:nth-child(4){animation-delay:.24s}
+
+/* Top nav */
+.topnav{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:48px;
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-icon{
+    width:40px;height:40px;
+    background:linear-gradient(135deg,var(--accent),#b8943f);
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 12px rgba(201,168,76,0.25);
+    flex-shrink:0;
+}
+.brand-icon svg{width:18px;height:18px;}
+.brand-name{
+    font-family:'DM Serif Display',serif;
+    font-size:22px;font-weight:400;letter-spacing:-0.2px;
+}
+
+/* Messages */
+.msg{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:16px 18px;border-radius:var(--radius);
+    font-size:14px;margin-bottom:20px;line-height:1.5;
+    backdrop-filter:blur(8px);
+}
+.msg-icon{
+    flex-shrink:0;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;
+}
+.msg-ok{background:var(--success-bg);color:var(--success-text);border:1px solid var(--success-border);}
+.msg-ok .msg-icon{background:rgba(34,120,60,0.25);color:var(--success-text);}
+.msg-warn{background:var(--warn-bg);color:var(--warn-text);border:1px solid var(--warn-border);}
+.msg-warn .msg-icon{background:rgba(180,100,20,0.25);color:var(--warn-text);}
+.msg-error{background:var(--error-bg);color:var(--error-text);border:1px solid var(--error-border);}
+.msg-error .msg-icon{background:rgba(185,28,28,0.2);color:var(--error-text);}
+
+/* Cards */
+.card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius-lg);padding:36px;
+    margin-bottom:20px;box-shadow:var(--shadow);
+    transition:border-color var(--transition);
+}
+.card:hover{border-color:var(--border-hover);}
+.card-title{
+    font-family:'DM Serif Display',serif;font-size:18px;font-weight:400;
+    color:var(--text);margin-bottom:28px;
+    display:flex;align-items:center;gap:10px;
+}
+.card-title-icon{
+    width:32px;height:32px;background:var(--accent-glow);
+    border:1px solid rgba(201,168,76,0.15);border-radius:8px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.card-title-icon svg{width:15px;height:15px;color:var(--accent);}
+
+/* Labels */
+label{
+    display:block;font-size:12px;font-weight:600;
+    color:var(--text-secondary);margin-bottom:8px;
+    letter-spacing:0.06em;text-transform:uppercase;
+}
+
+/* Password input */
+input[type=password]{
+    width:100%;padding:13px 16px;
+    border:1.5px solid var(--border);border-radius:var(--radius);
+    font-size:14px;font-family:'Inter',system-ui,sans-serif;
+    background:rgba(255,255,255,0.03);color:var(--text);
+    transition:border-color var(--transition),box-shadow var(--transition),background var(--transition);
+}
+input[type=password]:focus{
+    outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-glow);
+    background:rgba(255,255,255,0.05);
+}
+input[type=password]::placeholder{color:var(--text-muted);}
+
+/* Buttons */
+.btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    gap:8px;padding:12px 22px;border:none;border-radius:var(--radius);
+    font-size:14px;font-weight:600;font-family:'Inter',system-ui,sans-serif;
+    cursor:pointer;text-decoration:none;
+    transition:all var(--transition);letter-spacing:0.02em;
+    position:relative;overflow:hidden;
+}
+.btn-primary{
+    background:linear-gradient(135deg,var(--accent),#b8943f);
+    color:#0f0f0f;box-shadow:0 2px 12px rgba(201,168,76,0.2);
+}
+.btn-primary::after{
+    content:'';position:absolute;top:0;left:-100%;
+    width:100%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
+    transition:left .5s ease;
+}
+.btn-primary:hover::after{left:100%;}
+.btn-primary:hover{box-shadow:0 4px 20px rgba(201,168,76,0.35);transform:translateY(-1px);}
+.btn-primary:active{transform:translateY(0) scale(0.99);}
+
+.btn-secondary{
+    background:rgba(255,255,255,0.04);color:var(--text);
+    border:1.5px solid var(--border);
+}
+.btn-secondary:hover{background:rgba(255,255,255,0.07);border-color:var(--border-hover);transform:translateY(-1px);}
+.btn-secondary:active{background:rgba(255,255,255,0.09);transform:translateY(0);}
+
+.btn-danger{
+    background:rgba(185,28,28,0.12);color:#f87171;
+    border:1.5px solid rgba(185,28,28,0.28);
+}
+.btn-danger:hover{background:rgba(185,28,28,0.2);transform:translateY(-1px);}
+
+.btn-success{
+    background:rgba(34,120,60,0.14);color:#5ec77a;
+    border:1.5px solid rgba(34,120,60,0.3);
+}
+.btn-success:hover{background:rgba(34,120,60,0.22);transform:translateY(-1px);}
+
+.btn-full{width:100%;margin-top:20px;}
+
+/* Login layout */
+.login-center{max-width:380px;margin:0 auto;text-align:center;}
+.login-icon-wrap{
+    width:64px;height:64px;margin:0 auto 20px;
+    background:var(--accent-glow);
+    border:1px solid rgba(201,168,76,0.2);border-radius:16px;
+    display:flex;align-items:center;justify-content:center;
+}
+.login-icon-wrap svg{width:28px;height:28px;color:var(--accent);}
+.login-heading{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:6px;}
+.login-sub{color:var(--text-secondary);font-size:14px;margin-bottom:28px;}
+.login-row{display:flex;gap:10px;}
+.login-row input{flex:1;}
+
+/* Status */
+.status-row{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;
+}
+.status-left{display:flex;align-items:center;gap:14px;}
+.status-dot{width:10px;height:10px;border-radius:50%;}
+.status-dot.running{
+    background:#5ec77a;
+    box-shadow:0 0 0 0 rgba(94,199,122,0.4);
+    animation:pulse-green 2s ease-in-out infinite;
+}
+.status-dot.halted{
+    background:#f87171;
+    box-shadow:0 0 0 0 rgba(248,113,113,0.4);
+    animation:pulse-red 2s ease-in-out infinite;
+}
+@keyframes pulse-green{
+    0%,100%{box-shadow:0 0 0 0 rgba(94,199,122,0.4);}
+    50%{box-shadow:0 0 0 6px rgba(94,199,122,0);}
+}
+@keyframes pulse-red{
+    0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0.4);}
+    50%{box-shadow:0 0 0 6px rgba(248,113,113,0);}
+}
+.status-label{font-weight:600;font-size:15px;}
+.status-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+.admin-badge{
+    padding:4px 14px;border-radius:100px;font-size:11px;
+    font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
+}
+.admin-badge.super{background:var(--accent-glow);color:var(--accent);border:1px solid rgba(201,168,76,0.25);}
+.admin-badge.noob{background:rgba(255,255,255,0.06);color:var(--text-secondary);border:1px solid var(--border);}
+
+/* Table */
+.entry-count{
+    font-size:13px;color:var(--text-muted);margin-bottom:18px;
+    display:flex;align-items:center;gap:6px;
+}
+.count-pill{
+    background:var(--accent-glow);color:var(--accent);
+    border:1px solid rgba(201,168,76,0.2);
+    padding:2px 10px;border-radius:100px;font-size:12px;font-weight:600;
+}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:rgba(255,255,255,0.02);}
+th{
+    padding:12px 16px;text-align:left;
+    font-size:11px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--text-muted);border-bottom:1px solid var(--border);
+}
+td{
+    padding:14px 16px;font-size:14px;
+    border-bottom:1px solid rgba(255,255,255,0.04);
+    vertical-align:middle;
+}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr{transition:background var(--transition);}
+tbody tr:hover{background:rgba(255,255,255,0.025);}
+
+.code-pill{
+    font-family:'Courier New',monospace;font-size:13px;
+    background:rgba(255,255,255,0.07);padding:4px 10px;
+    border-radius:7px;font-weight:700;color:var(--text);
+    letter-spacing:0.03em;
+}
+.type-badge{
+    padding:3px 11px;border-radius:100px;font-size:11px;
+    font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
+}
+.type-badge.text{background:var(--accent-glow);color:var(--accent);border:1px solid rgba(201,168,76,0.2);}
+.type-badge.file{background:rgba(255,255,255,0.06);color:var(--text-secondary);border:1px solid var(--border);}
+.view-link{
+    color:var(--accent);text-decoration:none;font-size:13px;
+    font-weight:600;transition:color var(--transition),opacity var(--transition);
+    display:inline-flex;align-items:center;gap:4px;
+}
+.view-link:hover{color:var(--accent-hover);}
+.td-muted{color:var(--text-muted);font-size:13px;}
+
+/* Empty state */
+.empty-state{text-align:center;padding:60px 20px;}
+.empty-icon{
+    width:56px;height:56px;margin:0 auto 16px;
+    background:rgba(255,255,255,0.04);border:1px solid var(--border);
+    border-radius:14px;display:flex;align-items:center;justify-content:center;
+}
+.empty-icon svg{width:24px;height:24px;color:var(--text-muted);}
+.empty-state p{color:var(--text-muted);font-size:14px;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--border-hover);}
+::selection{background:rgba(201,168,76,0.25);color:var(--text);}
+
+@media(max-width:600px){
+    .wrap{padding:40px 16px 50px;}
+    .card{padding:24px;border-radius:16px;}
+    .topnav{margin-bottom:32px;}
+    .status-row{flex-direction:column;align-items:flex-start;}
+    .login-row{flex-direction:column;}
+    .login-row .btn{width:100%;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Top nav -->
+<nav class="topnav animate-in">
+    <div class="brand">
+        <div class="brand-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h18M17 8l4 4m0 0l-4 4"/></svg>
+        </div>
+        <span class="brand-name">Simple Share</span>
+    </div>
+    <a href="index.php" class="btn btn-secondary">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        Home
+    </a>
+</nav>
+
+<?php if($message): $cls = $msgType==='ok' ? 'msg-ok' : ($msgType==='warn' ? 'msg-warn' : 'msg-error'); $icon = $msgType==='ok' ? '✓' : ($msgType==='warn' ? '!' : '✕'); ?>
+<div class="msg <?=$cls?> animate-in">
+    <span class="msg-icon"><?=$icon?></span>
+    <span><?=htmlspecialchars($message)?></span>
+</div>
+<?php endif; ?>
+
+<?php if(!$ok): ?>
+<!-- Login -->
+<div class="card animate-in">
+    <div class="login-center">
+        <div class="login-icon-wrap">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5M5 10.5h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2z"/></svg>
+        </div>
+        <div class="login-heading">Admin Access</div>
+        <div class="login-sub">Enter the noob or super admin password to continue</div>
+        <form method="post">
+            <div class="login-row">
+                <input type="password" name="pass" placeholder="Enter password…" autofocus>
+                <button type="submit" name="login" class="btn btn-primary">Unlock</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php else: ?>
+
+<!-- Site Status -->
+<div class="card animate-in">
+    <div class="card-title">
+        <span class="card-title-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </span>
+        Site Status
+    </div>
+    <div class="status-row">
+        <div class="status-left">
+            <div class="status-dot <?=($site_halted ? 'halted' : 'running')?>"></div>
+            <div>
+                <div class="status-label"><?=$site_halted ? 'Site Halted' : 'Site Running'?></div>
+                <div class="status-sub"><?=$site_halted ? 'Uploads are currently disabled' : 'Accepting uploads normally'?></div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span class="admin-badge <?=$advanced?'super':'noob'?>"><?=$advanced?'⚡ Super Admin':'👤 Noob Admin'?></span>
+            <?php if($advanced): ?>
+            <form method="post">
+                <input type="hidden" name="action" value="toggle_halt">
+                <input type="hidden" name="pass" value="<?=htmlspecialchars($secret_super)?>">
+                <?php if($site_halted): ?>
+                    <button type="submit" class="btn btn-success">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
+                        Unhalt Site
+                    </button>
+                <?php else: ?>
+                    <button type="submit" class="btn btn-danger">
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                        Halt Site
+                    </button>
+                <?php endif; ?>
+            </form>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<!-- Entries -->
+<div class="card animate-in">
+    <div class="card-title">
+        <span class="card-title-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </span>
+        All Entries
+    </div>
+    <?php if(empty($data)): ?>
+    <div class="empty-state">
+        <div class="empty-icon">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+        </div>
+        <p>No entries have been shared yet.</p>
+    </div>
+    <?php else: ?>
+    <div class="entry-count">
+        <span class="count-pill"><?=count($data)?></span>
+        entr<?=count($data)===1?'y':'ies'?> total
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Type</th>
+                    <th>Comment</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach($data as $code => $item): ?>
+                <tr>
+                    <td><span class="code-pill"><?=htmlspecialchars($code)?></span></td>
+                    <td><span class="type-badge <?=htmlspecialchars($item['type']??'')?>"><?=htmlspecialchars($item['type']??'—')?></span></td>
+                    <td><?=htmlspecialchars($item['comment']??'—')?></td>
+                    <td class="td-muted"><?=date('M j, Y · H:i', $item['timestamp']??0)?></td>
+                    <td><a href="view.php?c=<?=urlencode($code)?>" class="view-link">View <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg></a></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
+</div>
+
+<?php endif; ?>
+</div>
+</body>
+</html>
+<div style="position: fixed; bottom: 10px; right: 10px; background-color: rgba(0, 0, 0, 0.7); color: white; padding: 8px 12px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 12px; z-index: 9999;">Created by Rudra</div>
